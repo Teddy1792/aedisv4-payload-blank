@@ -35,7 +35,7 @@ const Projects: CollectionConfig = {
     {
       name: "mainImg",
       type: "upload",
-      relationTo: "media", // Refers to the Media collection
+      relationTo: "media",
       required: true,
     },
     {
@@ -45,7 +45,7 @@ const Projects: CollectionConfig = {
         {
           name: "image",
           type: "upload",
-          relationTo: "media", // Refers to the Media collection
+          relationTo: "media",
         },
       ],
       maxRows: 4,
@@ -55,7 +55,7 @@ const Projects: CollectionConfig = {
     afterDelete: [
       async ({ doc, req }) => {
         // Handle deletion of the associated media documents and S3 files
-        const bucketName = process.env.AWS_BUCKET_NAME;
+        const bucketName = process.env.PAYLOAD_PUBLIC_AWS_BUCKET_NAM;
 
         if (!bucketName) {
           throw new Error("S3 bucket name not found in environment variables.");
