@@ -27,29 +27,39 @@ const Media: S3UploadCollectionConfig = {
         disabled: true,
       },
     },
+    {
+      name: "s3Key",
+      type: "text",
+      admin: {
+        disabled: true,
+      },
+    },
   ],
   hooks: {
     afterChange: [
       async ({ doc, req }) => {
         if (doc.filename) {
+          const s3Key = `images/${doc.filename}`;
           const s3Url = `https://${process.env.PAYLOAD_PUBLIC_AWS_BUCKET_NAME}.s3.${process.env.PAYLOAD_PUBLIC_AWS_REGION}.amazonaws.com/images/${doc.filename}`;
           console.log("Generated S3 URL:", s3Url);
-
-          // Add a delay before updating to allow MongoDB to persist the document
-          setTimeout(async () => {
-            try {
-              await req.payload.update({
-                collection: "media",
-                id: doc.id,
-                data: {
-                  url: s3Url,
-                },
-              });
-              console.log(`Document updated with S3 URL: ${s3Url}`);
-            } catch (error) {
-              console.error("Error updating document:", error);
-            }
-          }, 1000); // 1 second delay
+          if (doc.s3Key !== s3Key || doc.url !== s3Url) {
+            // Add a delay before updating to allow MongoDB to persist the document
+            setTimeout(async () => {
+              try {
+                await req.payload.update({
+                  collection: "media",
+                  id: doc.id,
+                  data: {
+                    s3Key: s3Key,
+                    url: s3Url,
+                  },
+                });
+                console.log(`Document updated with S3 URL: ${s3Url}`);
+              } catch (error) {
+                console.error("Error updating document:", error);
+              }
+            }, 1000); // 1 second delay
+          }
         } else {
           console.error("Filename is missing, cannot generate S3 URL.");
         }

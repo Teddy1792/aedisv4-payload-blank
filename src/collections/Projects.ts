@@ -1,4 +1,14 @@
 import { CollectionConfig } from "payload/types";
+import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3"; // Import the S3 client and delete command
+
+// Initialize the S3 client
+const s3 = new S3Client({
+  region: process.env.PAYLOAD_PUBLIC_AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
+});
 
 const Projects: CollectionConfig = {
   slug: "projets",
@@ -54,25 +64,43 @@ const Projects: CollectionConfig = {
   hooks: {
     afterDelete: [
       async ({ doc, req }) => {
-        // Handle deletion of the associated media documents and S3 files
-        const bucketName = process.env.PAYLOAD_PUBLIC_AWS_BUCKET_NAM;
+        const bucketName = process.env.PAYLOAD_PUBLIC_AWS_BUCKET_NAME; // Corrected typo
 
         if (!bucketName) {
           throw new Error("S3 bucket name not found in environment variables.");
         }
 
+        // Function to delete files from S3
+        const deleteFromS3 = async (s3Key: string) => {
+          try {
+            const deleteParams = {
+              Bucket: bucketName,
+              Key: s3Key,
+            };
+            await s3.send(new DeleteObjectCommand(deleteParams));
+            console.log(`Successfully deleted file from S3: ${s3Key}`);
+          } catch (error) {
+            console.error(`Error deleting file from S3: ${s3Key}`, error);
+          }
+        };
+
         // Delete main image from S3 and MongoDB
         if (doc.mainImg) {
+          console.log("Deleting main image from S3 and MongoDB", doc.mainImg);
           const mediaDoc = await req.payload.findByID({
             collection: "media",
-            id: doc.mainImg,
+            id: doc.mainImg.id as string,
           });
 
           if (mediaDoc && mediaDoc.s3Key) {
-            // Delete from S3
+            console.log("Deleting main image from S3", mediaDoc.s3Key);
+            // First delete from S3
+            await deleteFromS3(mediaDoc.s3Key as string);
+
+            // Then delete the media document from MongoDB
             await req.payload.delete({
               collection: "media",
-              id: doc.mainImg,
+              id: mediaDoc.id as string,
             });
           }
         }
@@ -80,16 +108,24 @@ const Projects: CollectionConfig = {
         // Delete gallery images from S3 and MongoDB
         if (doc.gallery && Array.isArray(doc.gallery)) {
           for (const galleryImage of doc.gallery) {
+            console.log(
+              "Deleting gallery image from S3 and MongoDB",
+              galleryImage
+            );
             const mediaDoc = await req.payload.findByID({
               collection: "media",
-              id: galleryImage.image,
+              id: galleryImage.image.id as string,
             });
 
             if (mediaDoc && mediaDoc.s3Key) {
-              // Delete from S3
+              console.log("Deleting gallery image from S3", mediaDoc.s3Key);
+              // First delete from S3
+              await deleteFromS3(mediaDoc.s3Key as string);
+
+              // Then delete the media document from MongoDB
               await req.payload.delete({
                 collection: "media",
-                id: galleryImage.image,
+                id: mediaDoc.id as string,
               });
             }
           }
